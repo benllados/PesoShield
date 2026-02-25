@@ -1,7 +1,14 @@
 import type { Metadata } from 'next'
+import { Lexend } from 'next/font/google'
 import './globals.css'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
+
+const lexend = Lexend({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'PesoShield — Tu plata, clara y protegida',
@@ -15,16 +22,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es-AR">
+    <html lang="es-AR" className={lexend.className}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
           rel="stylesheet"
         />
       </head>

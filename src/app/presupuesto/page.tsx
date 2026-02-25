@@ -138,7 +138,7 @@ export default function PresupuestoPage() {
       <div className="bg-primary-light rounded-2xl px-6 py-4 flex items-center gap-4 border border-primary/20">
         <span className="material-symbols-outlined text-primary text-3xl shrink-0">sync</span>
         <p className="text-base text-primary font-medium">
-          La columna <strong>"Gastado"</strong> se calcula automáticamente desde tus{' '}
+          La columna <strong>&quot;Gastado&quot;</strong> se calcula automáticamente desde tus{' '}
           <Link href="/movimientos" className="underline hover:text-primary-dark font-bold">
             movimientos registrados
           </Link>

@@ -1,5 +1,4 @@
 import type { RateDisplay } from './fetch-rates'
-import type { CategoryKey } from './types'
 import { BUDGET_CATEGORIES } from './types'
 import { getPlannedBudget, getSpentByCategory } from './budget'
 import { getTransactions } from './transactions'

@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       model: anthropic('claude-sonnet-4-20250514'),
       system: REPORT_SYSTEM_PROMPT,
       prompt: `Genera el resumen mensual con estos datos:\n${JSON.stringify(context, null, 2)}`,
-      maxTokens: 800,
+      maxOutputTokens: 800,
     })
 
     return Response.json({ report: result.text })
