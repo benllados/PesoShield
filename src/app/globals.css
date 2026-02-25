@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  /* Primary - Purple from Stitch */
+  --color-primary: #833cf6;
+  --color-primary-light: #efe9fc;
+  --color-primary-dark: #5e2bb0;
+  --color-primary-10: rgba(131, 60, 246, 0.1);
+  --color-primary-20: rgba(131, 60, 246, 0.2);
+  --color-primary-30: rgba(131, 60, 246, 0.3);
+  --color-primary-50: rgba(131, 60, 246, 0.5);
+
+  /* Calm green for budget status */
+  --color-calm-green: #0d9488;
+  --color-calm-green-light: #f0fdfa;
+
+  /* Dashboard green */
+  --color-bien: #22c55e;
+  --color-bien-bg: #f0fdf4;
+
+  /* Warning amber */
+  --color-ojo: #f59e0b;
+  --color-ojo-bg: #fffbeb;
+
+  /* Neutrals */
+  --color-background: #f9fafb;
+  --color-surface: #ffffff;
+  --color-text-primary: #1e293b;
+  --color-text-secondary: #64748b;
+  --color-text-muted: #94a3b8;
+  --color-border: #e2e8f0;
+  --color-border-light: #f1f5f9;
+
+  /* Calm blue for accents */
+  --color-calm-blue: #3b82f6;
+
+  /* Shadows */
+  --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+body {
+  font-family: 'Lexend', sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+/* Custom scrollbar for grandparent accessibility */
+::-webkit-scrollbar {
+  width: 12px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #c7c7c7;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

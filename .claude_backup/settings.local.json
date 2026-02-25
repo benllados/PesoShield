@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:dolarapi.com)",
+      "WebFetch(domain:api.bluelytics.com.ar)",
+      "WebFetch(domain:estadisticasbcra.com)",
+      "WebFetch(domain:www.bcra.gob.ar)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-npm --turbopack)"
+    ]
+  }
+}
