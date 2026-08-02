@@ -34,14 +34,20 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
-  const isPublic =
-    pathname === '/' ||
-    pathname === '/login' ||
-    pathname.startsWith('/auth/') ||
-    pathname.startsWith('/api/')
+
+  /*
+   * The five destinations are usable without an account. Budgets, movements
+   * and preferences live in the browser's own storage, so there is nothing
+   * server-side to protect — and gating them would break the first-run flow,
+   * which invites someone to start a budget before signing up for anything.
+   *
+   * Only the profile needs a session, because that is the only screen backed
+   * by the account itself.
+   */
+  const requiresAccount = pathname.startsWith('/perfil')
 
   // Redirect unauthenticated users to login
-  if (!user && !isPublic) {
+  if (!user && requiresAccount) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)

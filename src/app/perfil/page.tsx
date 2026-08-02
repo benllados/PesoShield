@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
+import { AlertTriangleIcon, BanknoteIcon, ChevronLeftIcon, CloseIcon, DownloadIcon, LogoutIcon, PencilIcon, SettingsIcon, SlidersIcon, SpinnerIcon, TrashIcon, TrendUpIcon, UserIcon } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
 import { getPreferences, savePreferences, type UserPreferences } from '@/lib/preferences'
 import { exportUserData } from '@/lib/export'
@@ -106,10 +107,8 @@ export default function PerfilPage() {
   if (loading) {
     return (
       <div className="flex flex-col gap-8 items-center justify-center min-h-[40vh]">
-        <span className="material-symbols-outlined text-primary text-5xl animate-spin">
-          progress_activity
-        </span>
-        <p className="text-xl text-text-secondary">Cargando perfil…</p>
+        <SpinnerIcon size={44} className="text-violet-deep animate-spin" />
+        <p className="text-xl text-ink-muted">Cargando perfil…</p>
       </div>
     )
   }
@@ -128,29 +127,29 @@ export default function PerfilPage() {
       <div className="flex flex-col gap-2">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-primary hover:text-primary-dark font-medium text-lg transition-colors w-fit mb-2"
+          className="inline-flex items-center gap-2 text-violet-deep hover:text-violet-deep font-medium text-lg transition-colors w-fit mb-2"
         >
-          <span className="material-symbols-outlined text-2xl">arrow_back</span>
+          <ChevronLeftIcon size={24} />
           Volver al inicio
         </Link>
-        <h2 className="text-4xl md:text-5xl font-bold text-text-primary tracking-tight">
+        <h2 className="text-4xl md:text-5xl font-bold text-ink tracking-tight">
           Mi perfil
         </h2>
-        <p className="text-xl text-text-secondary mt-1">
+        <p className="text-xl text-ink-muted mt-1">
           Gestioná tu cuenta y preferencias.
         </p>
       </div>
 
       {/* Section 1: User Info */}
-      <div className="bg-surface rounded-2xl border border-border shadow-[var(--shadow-soft)] p-6 md:p-8 flex flex-col gap-6">
+      <div className="bg-surface rounded-2xl border border-rule shadow-card p-6 md:p-8 flex flex-col gap-6">
         <div className="flex items-center gap-3 mb-2">
-          <span className="material-symbols-outlined text-primary text-2xl">person</span>
-          <h3 className="text-2xl font-bold text-text-primary">Información personal</h3>
+          <UserIcon size={24} className="text-violet-deep" />
+          <h3 className="text-2xl font-bold text-ink">Información personal</h3>
         </div>
 
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
           {/* Avatar */}
-          <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center shrink-0">
+          <div className="w-20 h-20 rounded-full bg-violet flex items-center justify-center shrink-0">
             <span className="text-white font-bold text-3xl">{initial}</span>
           </div>
 
@@ -158,25 +157,23 @@ export default function PerfilPage() {
           <div className="flex flex-col gap-4 flex-1 w-full">
             {/* Display Name */}
             <div className="flex flex-col gap-1">
-              <label className="text-base text-text-muted font-medium">Nombre</label>
+              <label className="text-base text-ink-subtle font-medium">Nombre</label>
               {editingName ? (
                 <div className="flex gap-3 items-center">
                   <input
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="flex-1 px-4 py-3 bg-background border border-border rounded-xl text-text-primary text-lg font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                    className="flex-1 px-4 py-3 bg-paper border border-rule rounded-xl text-ink text-lg font-medium focus:border-violet transition-all"
                   />
                   <button
                     type="button"
                     onClick={handleSaveName}
                     disabled={savingName || !newName.trim()}
-                    className="px-5 py-3 bg-primary text-white rounded-xl font-bold text-lg hover:bg-primary-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="px-5 py-3 bg-violet text-white rounded-xl font-bold text-lg hover:bg-violet-deep disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     {savingName ? (
-                      <span className="material-symbols-outlined text-xl animate-spin">
-                        progress_activity
-                      </span>
+                      <SpinnerIcon size={20} className="animate-spin" />
                     ) : (
                       'Guardar'
                     )}
@@ -187,22 +184,22 @@ export default function PerfilPage() {
                       setEditingName(false)
                       setNewName(profile?.display_name ?? '')
                     }}
-                    className="p-3 rounded-xl text-text-muted hover:text-text-primary hover:bg-background transition-colors"
+                    className="p-3 rounded-xl text-ink-subtle hover:text-ink hover:bg-paper transition-colors"
                   >
-                    <span className="material-symbols-outlined text-xl">close</span>
+                    <CloseIcon size={20} />
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <p className="text-xl font-medium text-text-primary">
+                  <p className="text-xl font-medium text-ink">
                     {profile?.display_name}
                   </p>
                   <button
                     type="button"
                     onClick={() => setEditingName(true)}
-                    className="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-primary-light transition-colors"
+                    className="p-2 rounded-lg text-ink-subtle hover:text-violet-deep hover:bg-violet-soft transition-colors"
                   >
-                    <span className="material-symbols-outlined text-xl">edit</span>
+                    <PencilIcon size={20} />
                   </button>
                 </div>
               )}
@@ -210,29 +207,29 @@ export default function PerfilPage() {
 
             {/* Email */}
             <div className="flex flex-col gap-1">
-              <label className="text-base text-text-muted font-medium">Email</label>
-              <p className="text-xl font-medium text-text-primary">{user?.email}</p>
+              <label className="text-base text-ink-subtle font-medium">Email</label>
+              <p className="text-xl font-medium text-ink">{user?.email}</p>
             </div>
 
             {/* Member since */}
             <div className="flex flex-col gap-1">
-              <label className="text-base text-text-muted font-medium">Miembro desde</label>
-              <p className="text-lg text-text-secondary capitalize">{memberSince}</p>
+              <label className="text-base text-ink-subtle font-medium">Miembro desde</label>
+              <p className="text-lg text-ink-muted capitalize">{memberSince}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Section 2: Preferences */}
-      <div className="bg-surface rounded-2xl border border-border shadow-[var(--shadow-soft)] p-6 md:p-8 flex flex-col gap-6">
+      <div className="bg-surface rounded-2xl border border-rule shadow-card p-6 md:p-8 flex flex-col gap-6">
         <div className="flex items-center gap-3 mb-2">
-          <span className="material-symbols-outlined text-primary text-2xl">tune</span>
-          <h3 className="text-2xl font-bold text-text-primary">Preferencias</h3>
+          <SlidersIcon size={24} className="text-violet-deep" />
+          <h3 className="text-2xl font-bold text-ink">Preferencias</h3>
         </div>
 
         {/* Currency Display */}
         <div className="flex flex-col gap-2">
-          <label className="text-lg font-medium text-text-secondary">
+          <label className="text-lg font-medium text-ink-muted">
             Moneda de referencia
           </label>
           <div className="flex gap-3">
@@ -241,8 +238,8 @@ export default function PerfilPage() {
               onClick={() => handlePreferenceChange('currencyDisplay', 'ARS')}
               className={`flex-1 py-3 px-4 rounded-xl font-bold text-lg transition-colors border-2 ${
                 preferences.currencyDisplay === 'ARS'
-                  ? 'bg-primary-light border-primary text-primary'
-                  : 'bg-background border-border text-text-muted hover:border-primary'
+                  ? 'bg-violet-soft border-violet text-violet-deep'
+                  : 'bg-paper border-rule text-ink-subtle hover:border-violet'
               }`}
             >
               $ ARS
@@ -252,8 +249,8 @@ export default function PerfilPage() {
               onClick={() => handlePreferenceChange('currencyDisplay', 'USD')}
               className={`flex-1 py-3 px-4 rounded-xl font-bold text-lg transition-colors border-2 ${
                 preferences.currencyDisplay === 'USD'
-                  ? 'bg-primary-light border-primary text-primary'
-                  : 'bg-background border-border text-text-muted hover:border-primary'
+                  ? 'bg-violet-soft border-violet text-violet-deep'
+                  : 'bg-paper border-rule text-ink-subtle hover:border-violet'
               }`}
             >
               US$ USD
@@ -263,7 +260,7 @@ export default function PerfilPage() {
 
         {/* Notification Toggles */}
         <div className="flex flex-col gap-4">
-          <label className="text-lg font-medium text-text-secondary">
+          <label className="text-lg font-medium text-ink-muted">
             Notificaciones
           </label>
 
@@ -272,24 +269,22 @@ export default function PerfilPage() {
             onClick={() =>
               handlePreferenceChange('notifyRateSpike', !preferences.notifyRateSpike)
             }
-            className="flex items-center justify-between p-4 bg-background rounded-xl border border-border hover:border-primary-20 transition-colors"
+            className="flex items-center justify-between p-4 bg-paper rounded-xl border border-rule hover:border-violet-20 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-2xl">
-                trending_up
-              </span>
+              <TrendUpIcon size={24} className="text-violet-deep" />
               <div className="text-left">
-                <p className="text-lg font-medium text-text-primary">
+                <p className="text-lg font-medium text-ink">
                   Alertas de tipo de cambio
                 </p>
-                <p className="text-base text-text-muted">
+                <p className="text-base text-ink-subtle">
                   Avisarte cuando el dólar suba mucho
                 </p>
               </div>
             </div>
             <div
               className={`w-12 h-7 rounded-full transition-colors flex items-center px-0.5 ${
-                preferences.notifyRateSpike ? 'bg-primary' : 'bg-border'
+                preferences.notifyRateSpike ? 'bg-violet' : 'bg-border'
               }`}
             >
               <div
@@ -308,24 +303,22 @@ export default function PerfilPage() {
                 !preferences.notifyBudgetThreshold
               )
             }
-            className="flex items-center justify-between p-4 bg-background rounded-xl border border-border hover:border-primary-20 transition-colors"
+            className="flex items-center justify-between p-4 bg-paper rounded-xl border border-rule hover:border-violet-20 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-2xl">
-                account_balance_wallet
-              </span>
+              <BanknoteIcon size={24} className="text-violet-deep" />
               <div className="text-left">
-                <p className="text-lg font-medium text-text-primary">
+                <p className="text-lg font-medium text-ink">
                   Alertas de presupuesto
                 </p>
-                <p className="text-base text-text-muted">
+                <p className="text-base text-ink-subtle">
                   Avisarte cuando te acerques al límite
                 </p>
               </div>
             </div>
             <div
               className={`w-12 h-7 rounded-full transition-colors flex items-center px-0.5 ${
-                preferences.notifyBudgetThreshold ? 'bg-primary' : 'bg-border'
+                preferences.notifyBudgetThreshold ? 'bg-violet' : 'bg-border'
               }`}
             >
               <div
@@ -339,12 +332,10 @@ export default function PerfilPage() {
       </div>
 
       {/* Section 3: Account Actions */}
-      <div className="bg-surface rounded-2xl border border-border shadow-[var(--shadow-soft)] p-6 md:p-8 flex flex-col gap-6">
+      <div className="bg-surface rounded-2xl border border-rule shadow-card p-6 md:p-8 flex flex-col gap-6">
         <div className="flex items-center gap-3 mb-2">
-          <span className="material-symbols-outlined text-primary text-2xl">
-            settings
-          </span>
-          <h3 className="text-2xl font-bold text-text-primary">Cuenta</h3>
+          <SettingsIcon size={24} className="text-violet-deep" />
+          <h3 className="text-2xl font-bold text-ink">Cuenta</h3>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -352,12 +343,12 @@ export default function PerfilPage() {
           <button
             type="button"
             onClick={exportUserData}
-            className="flex items-center gap-3 p-4 bg-background rounded-xl border border-border hover:border-primary hover:text-primary transition-colors text-left"
+            className="flex items-center gap-3 p-4 bg-paper rounded-xl border border-rule hover:border-violet hover:text-violet-deep transition-colors text-left"
           >
-            <span className="material-symbols-outlined text-2xl">download</span>
+            <DownloadIcon size={24} />
             <div>
               <p className="text-lg font-medium">Exportar mis datos</p>
-              <p className="text-base text-text-muted">
+              <p className="text-base text-ink-subtle">
                 Descargar transacciones y presupuesto en JSON
               </p>
             </div>
@@ -367,28 +358,26 @@ export default function PerfilPage() {
           <button
             type="button"
             onClick={handleLogout}
-            className="flex items-center gap-3 p-4 bg-background rounded-xl border border-border hover:border-text-secondary transition-colors text-left"
+            className="flex items-center gap-3 p-4 bg-paper rounded-xl border border-rule hover:border-text-secondary transition-colors text-left"
           >
-            <span className="material-symbols-outlined text-2xl">logout</span>
+            <LogoutIcon size={24} />
             <div>
               <p className="text-lg font-medium">Cerrar sesión</p>
-              <p className="text-base text-text-muted">
+              <p className="text-base text-ink-subtle">
                 Salir de tu cuenta en este dispositivo
               </p>
             </div>
           </button>
 
           {/* Delete Account */}
-          <div className="border-t border-border pt-4 mt-2">
+          <div className="border-t border-rule pt-4 mt-2">
             {!showDeleteConfirm ? (
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-3 p-4 bg-background rounded-xl border border-red-200 hover:border-red-400 text-red-500 transition-colors text-left w-full"
+                className="flex items-center gap-3 p-4 bg-paper rounded-xl border border-red-200 hover:border-red-400 text-red-500 transition-colors text-left w-full"
               >
-                <span className="material-symbols-outlined text-2xl">
-                  delete_forever
-                </span>
+                <TrashIcon size={24} />
                 <div>
                   <p className="text-lg font-medium">Eliminar mi cuenta</p>
                   <p className="text-base text-red-300">
@@ -399,9 +388,7 @@ export default function PerfilPage() {
             ) : (
               <div className="p-5 bg-red-50 border border-red-200 rounded-xl flex flex-col gap-4">
                 <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined text-red-500 text-2xl shrink-0">
-                    warning
-                  </span>
+                  <AlertTriangleIcon size={24} className="text-red shrink-0" />
                   <div>
                     <p className="text-lg font-bold text-red-600">
                       ¿Estás seguro?
@@ -417,7 +404,7 @@ export default function PerfilPage() {
                   value={deleteConfirmText}
                   onChange={(e) => setDeleteConfirmText(e.target.value)}
                   placeholder="Escribí ELIMINAR"
-                  className="w-full px-4 py-3 bg-white border border-red-200 rounded-xl text-text-primary text-lg font-medium focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all"
+                  className="w-full px-4 py-3 bg-white border border-red-200 rounded-xl text-ink text-lg font-medium focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all"
                 />
                 <div className="flex gap-3">
                   <button
@@ -428,9 +415,7 @@ export default function PerfilPage() {
                   >
                     {deleting ? (
                       <span className="inline-flex items-center gap-2">
-                        <span className="material-symbols-outlined text-xl animate-spin">
-                          progress_activity
-                        </span>
+                        <SpinnerIcon size={20} className="animate-spin" />
                         Eliminando…
                       </span>
                     ) : (
@@ -443,7 +428,7 @@ export default function PerfilPage() {
                       setShowDeleteConfirm(false)
                       setDeleteConfirmText('')
                     }}
-                    className="px-6 py-3 bg-white border border-border rounded-xl font-bold text-lg text-text-secondary hover:bg-background transition-colors"
+                    className="px-6 py-3 bg-white border border-rule rounded-xl font-bold text-lg text-ink-muted hover:bg-paper transition-colors"
                   >
                     Cancelar
                   </button>
