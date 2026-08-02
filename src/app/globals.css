@@ -1,62 +1,157 @@
 @import "tailwindcss";
 
+/*
+ * PesoShield design system.
+ *
+ * Calm, trustworthy, highly legible — built for people over 60 managing their
+ * own money daily. Three rules run through everything below:
+ *   1. Body text never goes under 18px.
+ *   2. Colour never carries meaning alone; it always joins an icon and a word.
+ *   3. Violet is reserved for actions. The only exception is the shield mark.
+ */
+
 @theme {
-  /* Primary - Purple from Stitch */
-  --color-primary: #833cf6;
-  --color-primary-light: #efe9fc;
-  --color-primary-dark: #5e2bb0;
-  --color-primary-10: rgba(131, 60, 246, 0.1);
-  --color-primary-20: rgba(131, 60, 246, 0.2);
-  --color-primary-30: rgba(131, 60, 246, 0.3);
-  --color-primary-50: rgba(131, 60, 246, 0.5);
+  /* Surfaces --------------------------------------------------------------- */
+  --color-paper: #faf6ee; /* page base */
+  --color-surface: #ffffff; /* cards, bars */
+  --color-surface-sunk: #f4eee1; /* grouped surfaces inside a section */
+  --color-track: #ede7d8; /* progress bar troughs */
+  --color-disabled: #ede8dc; /* disabled control fill */
 
-  /* Calm green for budget status */
-  --color-calm-green: #0d9488;
-  --color-calm-green-light: #f0fdfa;
+  /* Ink -------------------------------------------------------------------- */
+  --color-ink: #20293f; /* primary text */
+  --color-ink-strong: #454c5e; /* nav items, secondary headings */
+  --color-ink-muted: #5b6274; /* supporting copy */
+  --color-ink-subtle: #8b8e99; /* placeholders only */
 
-  /* Dashboard green */
-  --color-bien: #22c55e;
-  --color-bien-bg: #f0fdf4;
+  /* Lines ------------------------------------------------------------------ */
+  --color-rule: #e6dfce; /* borders */
+  --color-rule-soft: #efe9db; /* dividers inside a surface */
+  --color-rule-field: #c9c2b2; /* input borders */
 
-  /* Warning amber */
-  --color-ojo: #f59e0b;
-  --color-ojo-bg: #fffbeb;
+  /* Brand / action --------------------------------------------------------- */
+  --color-violet: #5a4ba5;
+  --color-violet-deep: #483c8a; /* hover, and violet text on light */
+  --color-violet-soft: #efecf8; /* active nav, selection, chips */
+  --color-violet-line: #cdc5e8;
 
-  /* Neutrals */
-  --color-background: #f9fafb;
-  --color-surface: #ffffff;
-  --color-text-primary: #1e293b;
-  --color-text-secondary: #64748b;
-  --color-text-muted: #94a3b8;
-  --color-border: #e2e8f0;
-  --color-border-light: #f1f5f9;
+  /* Positive --------------------------------------------------------------- */
+  --color-green: #17714f;
+  --color-green-deep: #0f5138;
+  --color-green-soft: #e4f2ea;
+  --color-green-line: #a9d4bd;
 
-  /* Calm blue for accents */
-  --color-calm-blue: #3b82f6;
+  /* Warning ---------------------------------------------------------------- */
+  --color-amber: #8a5a00;
+  --color-amber-deep: #6b4600;
+  --color-amber-bar: #c98a0b;
+  --color-amber-soft: #fcf1da;
+  --color-amber-tint: #fffbf2; /* row background */
+  --color-amber-line: #e8c87f;
 
-  /* Shadows */
-  --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  /* Danger ----------------------------------------------------------------- */
+  --color-red: #b3261e;
+  --color-red-deep: #8c1d16;
+  --color-red-soft: #fbe9e7;
+  --color-red-tint: #fff8f7; /* row background */
+  --color-red-line: #e3a69f;
+
+  /* Radii ------------------------------------------------------------------ */
+  --radius-card: 16px;
+  --radius-control: 12px;
+  --radius-tile: 10px;
+
+  /* The shadow is nearly nothing on purpose — borders and space carry the
+     hierarchy instead. */
+  --shadow-card: 0 1px 2px rgba(32, 41, 63, 0.06);
+  --shadow-raised: 0 2px 8px rgba(32, 41, 63, 0.08);
+  --shadow-modal: 0 16px 48px rgba(32, 41, 63, 0.3);
 }
 
-body {
-  font-family: 'Lexend', sans-serif;
-  background-color: var(--color-background);
-  color: var(--color-text-primary);
-  font-size: 18px;
-  line-height: 1.6;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-size: 18px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Argentine number formatting relies on distinguishing 0/O and 1/l/I —
+     Atkinson Hyperlegible does that by design, and tabular figures keep
+     columns of pesos aligned. */
+  :where(h1, h2, h3) {
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  /* One visible focus treatment everywhere, on any background. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 3px solid var(--color-ink);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  ::placeholder {
+    color: var(--color-ink-subtle);
+  }
 }
 
-/* Custom scrollbar for grandparent accessibility */
+@layer utilities {
+  /* Money and dates line up in columns without jitter. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Visible only to screen readers — used for chart summaries and live regions. */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+/* Wide, high-contrast scrollbars — easier to grab, easier to see. */
 ::-webkit-scrollbar {
   width: 12px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--color-surface-sunk);
 }
 ::-webkit-scrollbar-thumb {
-  background: #c7c7c7;
+  background: var(--color-rule-field);
   border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: var(--color-ink-subtle);
+}
+
+/*
+ * Reduced motion: the handoff allows opacity transitions up to 150ms and
+ * nothing else. Transforms and animations are removed rather than shortened.
+ */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 150ms !important;
+    transition-property: opacity, color, background-color, border-color !important;
+    transform: none !important;
+  }
 }

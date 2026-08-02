@@ -136,11 +136,11 @@ export function checkAllAlerts(
   rates: RateDisplay[],
   previousRates: RateDisplay[] | null
 ): Alert[] {
-  const planned = getPlannedBudget()
   const now = new Date()
   const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const prevYM = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`
+  const planned = getPlannedBudget(currentYM)
   const spent = getSpentByCategory(currentYM)
   const prevSpent = getSpentByCategory(prevYM)
 

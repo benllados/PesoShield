@@ -1,57 +1,44 @@
 'use client'
 
-import { Suspense, useState, useEffect, useMemo } from 'react'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
-import { BUDGET_CATEGORIES, type CategoryKey, type Transaction } from '@/lib/types'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+
 import {
-  getTransactions,
-  addTransaction,
-  deleteTransaction,
-} from '@/lib/transactions'
+  ArrowDownIcon,
+  ArrowUpIcon,
+  BanknoteIcon,
+  CATEGORY_ICONS,
+  ListIcon,
+  PlusIcon,
+  SearchIcon,
+} from '@/components/icons'
+import { TransactionDialog } from '@/components/TransactionDialog'
+import { Button, Card, Chip, EmptyState, Skeleton, cn } from '@/components/ui'
+import {
+  currentMonthKey,
+  formatARS,
+  formatDayGroup,
+  formatMonthLabel,
+  formatSignedARS,
+} from '@/lib/format'
+import { addTransaction, deleteTransaction, getTransactions } from '@/lib/transactions'
+import { BUDGET_CATEGORIES, type CategoryKey, type Transaction } from '@/lib/types'
 
-const ALL_FILTER = 'todos' as const
+/**
+ * Movimientos — the full ledger, newest first, grouped by day.
+ *
+ * Income and expense are distinguished four ways at once: the sign, the colour,
+ * the word, and the icon. Any one of them alone would fail somebody.
+ */
 
-function formatARS(n: number) {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    maximumFractionDigits: 0,
-  }).format(n)
-}
+/** How long the undo offer stays up after saving, per the handoff. */
+const UNDO_MS = 8000
 
-function formatInputNumber(n: number) {
-  return n > 0
-    ? new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)
-    : ''
-}
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function getCategoryInfo(key: CategoryKey) {
-  return BUDGET_CATEGORIES.find((c) => c.key === key) ?? BUDGET_CATEGORIES[4]
-}
-
-const CATEGORY_BG: Record<CategoryKey, string> = {
-  alimentos: 'bg-orange-100',
-  servicios: 'bg-yellow-100',
-  transporte: 'bg-blue-100',
-  salud: 'bg-red-100',
-  otros: 'bg-purple-100',
-}
+type TypeFilter = 'todos' | 'gasto' | 'ingreso'
 
 export default function MovimientosPage() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col gap-8 items-center justify-center min-h-[40vh]">
-        <span className="material-symbols-outlined text-primary text-5xl animate-spin">progress_activity</span>
-        <p className="text-xl text-text-secondary">Cargando movimientos…</p>
-      </div>
-    }>
+    <Suspense fallback={<ListSkeleton />}>
       <MovimientosContent />
     </Suspense>
   )
@@ -59,426 +46,379 @@ export default function MovimientosPage() {
 
 function MovimientosContent() {
   const searchParams = useSearchParams()
-  const categoriaParam = searchParams.get('categoria') as CategoryKey | null
-  const validCategoria = BUDGET_CATEGORIES.some((c) => c.key === categoriaParam)
-    ? categoriaParam
+
+  // Mi mes links here with ?categoria=…; anything unrecognised is ignored
+  // rather than silently filtering everything out.
+  const categoryParam = searchParams.get('categoria')
+  const initialCategory = BUDGET_CATEGORIES.some((c) => c.key === categoryParam)
+    ? (categoryParam as CategoryKey)
     : null
 
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [showForm, setShowForm] = useState(false)
-  const [filter, setFilter] = useState<typeof ALL_FILTER | CategoryKey>(
-    validCategoria ?? ALL_FILTER
-  )
+  const [transactions, setTransactions] = useState<Transaction[] | null>(null)
+  const [query, setQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('todos')
+  const [categoryFilter, setCategoryFilter] = useState<CategoryKey | null>(initialCategory)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Transaction | null>(null)
+  const undoTimer = useRef<number | null>(null)
 
-  // Form state
-  const [formType, setFormType] = useState<'gasto' | 'ingreso'>('gasto')
-  const [formAmount, setFormAmount] = useState(0)
-  const [formCategory, setFormCategory] = useState<CategoryKey>('alimentos')
-  const [formDescription, setFormDescription] = useState('')
-  const [formDate, setFormDate] = useState(todayISO())
+  const monthKey = currentMonthKey()
+  const monthWord = formatMonthLabel(monthKey).split(' ')[0].toLowerCase()
 
-  // Load from localStorage on mount
   useEffect(() => {
     setTransactions(getTransactions())
   }, [])
 
-  const now = new Date()
-  const currentMonth = now.toLocaleDateString('es-AR', {
-    month: 'long',
-    year: 'numeric',
-  })
-  const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-
-  // Filter to current month
-  const monthTransactions = useMemo(
-    () => transactions.filter((t) => t.date.startsWith(currentYearMonth)),
-    [transactions, currentYearMonth]
+  useEffect(
+    () => () => {
+      if (undoTimer.current) window.clearTimeout(undoTimer.current)
+    },
+    [],
   )
 
-  // Apply category filter
-  const filteredTransactions = useMemo(() => {
-    const list =
-      filter === ALL_FILTER
-        ? monthTransactions
-        : monthTransactions.filter((t) => t.category === filter)
-    return [...list].sort((a, b) => b.date.localeCompare(a.date))
-  }, [monthTransactions, filter])
+  /* Totals describe the whole month, regardless of the filters below them. */
+  const totals = useMemo(() => {
+    const inMonth = (transactions ?? []).filter((tx) => tx.date.startsWith(monthKey))
+    const income = inMonth
+      .filter((tx) => tx.type === 'ingreso')
+      .reduce((sum, tx) => sum + tx.amount, 0)
+    const spent = inMonth
+      .filter((tx) => tx.type === 'gasto')
+      .reduce((sum, tx) => sum + tx.amount, 0)
+    return { income, spent, balance: income - spent }
+  }, [transactions, monthKey])
 
-  // Summary stats
-  const totalGastos = useMemo(
-    () =>
-      monthTransactions
-        .filter((t) => t.type === 'gasto')
-        .reduce((sum, t) => sum + t.amount, 0),
-    [monthTransactions]
-  )
-  const totalIngresos = useMemo(
-    () =>
-      monthTransactions
-        .filter((t) => t.type === 'ingreso')
-        .reduce((sum, t) => sum + t.amount, 0),
-    [monthTransactions]
-  )
-  const balance = totalIngresos - totalGastos
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase()
 
-  // Handlers
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (formAmount <= 0 || !formDescription.trim()) return
+    return (transactions ?? [])
+      .filter((tx) => (typeFilter === 'todos' ? true : tx.type === typeFilter))
+      .filter((tx) => (categoryFilter ? tx.category === categoryFilter : true))
+      .filter((tx) => {
+        if (!needle) return true
+        const label = BUDGET_CATEGORIES.find((c) => c.key === tx.category)?.label ?? ''
+        return (
+          tx.description.toLowerCase().includes(needle) ||
+          label.toLowerCase().includes(needle)
+        )
+      })
+      .sort((a, b) => b.date.localeCompare(a.date))
+  }, [transactions, query, typeFilter, categoryFilter])
 
-    const tx: Transaction = {
-      id: crypto.randomUUID(),
-      date: formDate,
-      description: formDescription.trim(),
-      amount: formAmount,
-      type: formType,
-      category: formCategory,
+  const groups = useMemo(() => {
+    const byDay = new Map<string, Transaction[]>()
+    for (const tx of filtered) {
+      const list = byDay.get(tx.date) ?? []
+      list.push(tx)
+      byDay.set(tx.date, list)
     }
+    return [...byDay.entries()]
+  }, [filtered])
 
-    const updated = addTransaction(tx)
-    setTransactions(updated)
-    resetForm()
-    setShowForm(false)
+  function handleSave(transaction: Transaction) {
+    setTransactions(addTransaction(transaction))
+    setLastSaved(transaction)
+
+    if (undoTimer.current) window.clearTimeout(undoTimer.current)
+    undoTimer.current = window.setTimeout(() => setLastSaved(null), UNDO_MS)
   }
 
-  const handleDelete = (id: string) => {
-    if (!window.confirm('¿Estás seguro de que querés eliminar este movimiento?')) return
-    const updated = deleteTransaction(id)
-    setTransactions(updated)
+  function handleUndo() {
+    if (!lastSaved) return
+    setTransactions(deleteTransaction(lastSaved.id))
+    setLastSaved(null)
+    if (undoTimer.current) window.clearTimeout(undoTimer.current)
   }
 
-  const resetForm = () => {
-    setFormType('gasto')
-    setFormAmount(0)
-    setFormCategory('alimentos')
-    setFormDescription('')
-    setFormDate(todayISO())
+  function clearFilters() {
+    setQuery('')
+    setTypeFilter('todos')
+    setCategoryFilter(null)
   }
 
-  const handleAmountChange = (value: string) => {
-    const cleaned = value.replace(/\./g, '').replace(/,/g, '')
-    setFormAmount(parseFloat(cleaned) || 0)
-  }
+  const loading = transactions === null
+  const hasAny = (transactions?.length ?? 0) > 0
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* Back link + Title */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-4 mb-2">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-primary hover:text-primary-dark font-medium text-lg transition-colors w-fit"
-          >
-            <span className="material-symbols-outlined text-2xl">arrow_back</span>
-            Volver al inicio
-          </Link>
-          {validCategoria && (
-            <>
-              <span className="text-text-muted">|</span>
-              <Link
-                href="/presupuesto"
-                className="inline-flex items-center gap-2 text-primary hover:text-primary-dark font-medium text-lg transition-colors w-fit"
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <h1 className="text-[2rem] font-bold">Movimientos</h1>
+        <Button onClick={() => setDialogOpen(true)}>
+          <PlusIcon size={22} />
+          Agregar movimiento
+        </Button>
+      </header>
+
+      {loading ? (
+        <ListSkeleton />
+      ) : (
+        <>
+          <Card className="grid gap-4 sm:grid-cols-3 sm:gap-0">
+            <Total
+              label={`Ingresos de ${monthWord}`}
+              amount={totals.income}
+              icon={<ArrowUpIcon size={16} className="text-green" />}
+              tone="positive"
+            />
+            <Total
+              label={`Gastos de ${monthWord}`}
+              amount={-totals.spent}
+              icon={<ArrowDownIcon size={16} />}
+              divided
+            />
+            <Total
+              label="Balance"
+              amount={totals.balance}
+              icon={<BanknoteIcon size={16} />}
+              tone={totals.balance >= 0 ? 'positive' : 'negative'}
+              divided
+            />
+          </Card>
+
+          {hasAny ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex h-13 min-w-[16rem] flex-1 items-center gap-2.5 rounded-control border-2 border-rule-field bg-surface px-4">
+                <SearchIcon size={20} className="shrink-0 text-ink-muted" />
+                <label htmlFor="buscar" className="sr-only">
+                  Buscar por comercio o descripción
+                </label>
+                <input
+                  id="buscar"
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Buscar por comercio o descripción…"
+                  className="w-full bg-transparent text-[1.0625rem] outline-none"
+                />
+              </div>
+
+              <div role="group" aria-label="Filtrar por tipo" className="flex gap-1.5">
+                {(
+                  [
+                    ['todos', 'Todos'],
+                    ['gasto', 'Gastos'],
+                    ['ingreso', 'Ingresos'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Chip
+                    key={value}
+                    active={typeFilter === value}
+                    onClick={() => setTypeFilter(value)}
+                  >
+                    {label}
+                  </Chip>
+                ))}
+              </div>
+
+              <label htmlFor="filtro-categoria" className="sr-only">
+                Filtrar por categoría
+              </label>
+              <select
+                id="filtro-categoria"
+                value={categoryFilter ?? ''}
+                onChange={(event) =>
+                  setCategoryFilter((event.target.value || null) as CategoryKey | null)
+                }
+                className="h-12 rounded-full border border-rule-field bg-surface px-4 text-base text-ink-strong"
               >
-                <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
-                Volver al presupuesto
-              </Link>
-            </>
-          )}
-        </div>
-        <h2 className="text-4xl md:text-5xl font-bold text-text-primary tracking-tight capitalize">
-          Movimientos de {currentMonth}
-        </h2>
-        <p className="text-xl text-text-secondary mt-1">
-          Registrá tus gastos e ingresos del mes.
-        </p>
-      </div>
+                <option value="">Todas las categorías</option>
+                {BUDGET_CATEGORIES.map((category) => (
+                  <option key={category.key} value={category.key}>
+                    {category.label}
+                  </option>
+                ))}
+              </select>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Total Gastos */}
-        <div className="bg-surface rounded-2xl border border-border shadow-[var(--shadow-soft)] p-6 flex items-center gap-4">
-          <div className="bg-ojo-bg p-3 rounded-xl shrink-0">
-            <span className="material-symbols-outlined text-ojo text-3xl">trending_down</span>
-          </div>
-          <div>
-            <p className="text-base text-text-secondary font-medium">Total Gastos</p>
-            <p className="text-2xl font-bold text-ojo">{formatARS(totalGastos)}</p>
-          </div>
-        </div>
-
-        {/* Total Ingresos */}
-        <div className="bg-surface rounded-2xl border border-border shadow-[var(--shadow-soft)] p-6 flex items-center gap-4">
-          <div className="bg-bien-bg p-3 rounded-xl shrink-0">
-            <span className="material-symbols-outlined text-bien text-3xl">trending_up</span>
-          </div>
-          <div>
-            <p className="text-base text-text-secondary font-medium">Total Ingresos</p>
-            <p className="text-2xl font-bold text-bien">{formatARS(totalIngresos)}</p>
-          </div>
-        </div>
-
-        {/* Balance */}
-        <div className="bg-surface rounded-2xl border border-border shadow-[var(--shadow-soft)] p-6 flex items-center gap-4">
-          <div className="bg-primary-light p-3 rounded-xl shrink-0">
-            <span className="material-symbols-outlined text-primary text-3xl">account_balance</span>
-          </div>
-          <div>
-            <p className="text-base text-text-secondary font-medium">Balance Neto</p>
-            <p className={`text-2xl font-bold ${balance >= 0 ? 'text-bien' : 'text-ojo'}`}>
-              {balance >= 0 ? '+' : ''}
-              {formatARS(balance)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Add Transaction Form */}
-      <div className="bg-surface rounded-2xl border border-border shadow-[var(--shadow-soft)] overflow-hidden">
-        <button
-          type="button"
-          onClick={() => {
-            setShowForm(!showForm)
-            if (!showForm) resetForm()
-          }}
-          className="w-full flex items-center justify-between px-6 py-5 hover:bg-background transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary text-2xl">
-              {showForm ? 'close' : 'add_circle'}
-            </span>
-            <span className="text-xl font-bold text-text-primary">
-              {showForm ? 'Cerrar formulario' : 'Agregar movimiento'}
-            </span>
-          </div>
-          <span className="material-symbols-outlined text-text-muted text-2xl transition-transform" style={{ transform: showForm ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-            expand_more
-          </span>
-        </button>
-
-        {showForm && (
-          <form onSubmit={handleSubmit} className="px-6 pb-6 flex flex-col gap-5 border-t border-border-light pt-5">
-            {/* Type Toggle */}
-            <div className="flex flex-col gap-2">
-              <label className="text-lg font-medium text-text-secondary">Tipo</label>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormType('gasto')}
-                  className={`flex-1 py-3 px-4 rounded-xl font-bold text-lg transition-colors border-2 ${
-                    formType === 'gasto'
-                      ? 'bg-ojo-bg border-ojo text-ojo'
-                      : 'bg-background border-border text-text-muted hover:border-ojo'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-xl align-middle mr-1">trending_down</span>
-                  Gasto
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormType('ingreso')}
-                  className={`flex-1 py-3 px-4 rounded-xl font-bold text-lg transition-colors border-2 ${
-                    formType === 'ingreso'
-                      ? 'bg-bien-bg border-bien text-bien'
-                      : 'bg-background border-border text-text-muted hover:border-bien'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-xl align-middle mr-1">trending_up</span>
-                  Ingreso
-                </button>
-              </div>
+              <p aria-live="polite" className="sr-only">
+                {filtered.length} resultados
+              </p>
             </div>
+          ) : null}
 
-            {/* Amount + Category row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-lg font-medium text-text-secondary">Monto</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-lg">$</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={formatInputNumber(formAmount)}
-                    onChange={(e) => handleAmountChange(e.target.value)}
-                    placeholder="0"
-                    className="w-full pl-8 pr-4 py-3 bg-background border border-border rounded-xl text-text-primary text-lg font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-lg font-medium text-text-secondary">Categoría</label>
-                <select
-                  value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value as CategoryKey)}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary text-lg font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all appearance-none cursor-pointer"
-                >
-                  {BUDGET_CATEGORIES.map((c) => (
-                    <option key={c.key} value={c.key}>
-                      {c.icon} {c.label}
-                    </option>
+          {!hasAny ? (
+            <Card padded={false}>
+              <EmptyState
+                icon={<ListIcon size={34} />}
+                title="Todavía no anotaste movimientos"
+                action={
+                  <Button onClick={() => setDialogOpen(true)}>
+                    <PlusIcon size={20} />
+                    Agregar mi primer movimiento
+                  </Button>
+                }
+              >
+                Anotá tu primer gasto o ingreso y acá vas a ver la lista completa, agrupada por
+                día.
+              </EmptyState>
+            </Card>
+          ) : filtered.length === 0 ? (
+            <Card padded={false}>
+              <EmptyState
+                icon={<SearchIcon size={34} />}
+                title="No encontramos movimientos"
+                action={
+                  <Button tone="secondary" size="md" onClick={clearFilters}>
+                    Limpiar filtros
+                  </Button>
+                }
+              >
+                Probá con otra búsqueda o quitá los filtros para ver todo de nuevo.
+              </EmptyState>
+            </Card>
+          ) : (
+            <section className="overflow-hidden rounded-card border border-rule bg-surface shadow-card">
+              {groups.map(([date, items]) => (
+                <div key={date}>
+                  <h2 className="bg-surface-sunk px-5 py-3 text-[1rem] font-bold text-ink-strong sm:px-8">
+                    {formatDayGroup(date)}
+                  </h2>
+                  {items.map((tx) => (
+                    <TransactionRow
+                      key={tx.id}
+                      transaction={tx}
+                      highlighted={tx.id === lastSaved?.id}
+                    />
                   ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Description + Date row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-lg font-medium text-text-secondary">Descripción</label>
-                <input
-                  type="text"
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Ej: Compra del supermercado"
-                  className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary text-lg placeholder:text-text-muted focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-lg font-medium text-text-secondary">Fecha</label>
-                <input
-                  type="date"
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary text-lg font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={formAmount <= 0 || !formDescription.trim()}
-              className="self-start px-8 py-3 bg-primary text-white rounded-xl font-bold text-lg hover:bg-primary-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
-            >
-              <span className="material-symbols-outlined text-xl align-middle mr-2">save</span>
-              Guardar movimiento
-            </button>
-          </form>
-        )}
-      </div>
-
-      {/* Category Filter Pills */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <button
-          type="button"
-          onClick={() => setFilter(ALL_FILTER)}
-          className={`px-5 py-2.5 rounded-xl font-medium text-base whitespace-nowrap transition-colors border ${
-            filter === ALL_FILTER
-              ? 'bg-primary text-white border-primary'
-              : 'bg-surface text-text-secondary border-border hover:border-primary hover:text-primary'
-          }`}
-        >
-          Todos
-        </button>
-        {BUDGET_CATEGORIES.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => setFilter(c.key)}
-            className={`px-5 py-2.5 rounded-xl font-medium text-base whitespace-nowrap transition-colors border ${
-              filter === c.key
-                ? 'bg-primary text-white border-primary'
-                : 'bg-surface text-text-secondary border-border hover:border-primary hover:text-primary'
-            }`}
-          >
-            {c.icon} {c.label.split(' ')[0]}
-          </button>
-        ))}
-      </div>
-
-      {/* Transaction List */}
-      <div className="flex flex-col gap-3">
-        {filteredTransactions.length === 0 ? (
-          /* Empty State */
-          <div className="bg-surface rounded-2xl border border-border shadow-[var(--shadow-soft)] p-12 flex flex-col items-center gap-4 text-center">
-            <div className="bg-primary-light p-5 rounded-full">
-              <span className="material-symbols-outlined text-primary text-5xl">receipt_long</span>
-            </div>
-            <h3 className="text-2xl font-bold text-text-primary">
-              {filter !== ALL_FILTER
-                ? 'No hay movimientos en esta categoría'
-                : 'No tenés movimientos este mes'}
-            </h3>
-            <p className="text-lg text-text-secondary max-w-md">
-              {filter !== ALL_FILTER
-                ? 'Probá con otra categoría o agregá un nuevo movimiento.'
-                : '¡Empezá registrando tu primer gasto o ingreso!'}
-            </p>
-            {!showForm && (
-              <button
-                type="button"
-                onClick={() => setShowForm(true)}
-                className="mt-2 inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold text-lg hover:bg-primary-dark transition-colors"
-              >
-                <span className="material-symbols-outlined text-xl">add_circle</span>
-                Agregar movimiento
-              </button>
-            )}
-          </div>
-        ) : (
-          filteredTransactions.map((tx) => {
-            const cat = getCategoryInfo(tx.category)
-            const bg = CATEGORY_BG[tx.category]
-            const isGasto = tx.type === 'gasto'
-            return (
-              <div
-                key={tx.id}
-                className="bg-surface rounded-2xl border border-border shadow-[var(--shadow-soft)] px-5 py-4 flex items-center gap-4 hover:border-primary-20 transition-colors"
-              >
-                {/* Category Icon */}
-                <div className={`${bg} p-3 rounded-xl text-2xl shrink-0`}>
-                  {cat.icon}
                 </div>
-
-                {/* Description + Date */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-lg font-medium text-text-primary truncate">
-                    {tx.description}
-                  </p>
-                  <p className="text-base text-text-muted">
-                    {format(parseISO(tx.date), "d 'de' MMMM", { locale: es })}
-                    {' · '}
-                    <span className="capitalize">{cat.label.split(' ')[0]}</span>
-                  </p>
-                </div>
-
-                {/* Amount */}
-                <div className="text-right shrink-0">
-                  <p className={`text-xl font-bold ${isGasto ? 'text-ojo' : 'text-bien'}`}>
-                    {isGasto ? '−' : '+'}
-                    {formatARS(tx.amount)}
-                  </p>
-                  <p className={`text-sm font-medium ${isGasto ? 'text-ojo' : 'text-bien'} opacity-70`}>
-                    {isGasto ? 'Gasto' : 'Ingreso'}
-                  </p>
-                </div>
-
-                {/* Delete */}
-                <button
-                  type="button"
-                  onClick={() => handleDelete(tx.id)}
-                  className="p-2 rounded-lg text-text-muted hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                  aria-label="Eliminar movimiento"
-                >
-                  <span className="material-symbols-outlined text-xl">delete</span>
-                </button>
-              </div>
-            )
-          })
-        )}
-      </div>
-
-      {/* Bottom back button */}
-      {filteredTransactions.length > 3 && (
-        <div className="flex justify-center pb-10">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-3 px-8 py-4 bg-surface border-2 border-primary text-primary hover:bg-primary hover:text-white rounded-2xl font-bold text-xl transition-all duration-300 shadow-sm hover:shadow-md"
-          >
-            <span className="material-symbols-outlined">arrow_back</span>
-            Volver al inicio
-          </Link>
-        </div>
+              ))}
+            </section>
+          )}
+        </>
       )}
+
+      <TransactionDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSave={handleSave}
+      />
+
+      {/* Saved confirmation with the handoff's 8-second undo window. */}
+      {lastSaved ? (
+        <div
+          role="status"
+          className="fixed inset-x-4 bottom-24 z-40 mx-auto flex max-w-lg items-center gap-3 rounded-card border border-green-line bg-green-soft px-4 py-3.5 shadow-raised md:bottom-6"
+        >
+          <span className="flex-1 text-[1rem] text-green-deep">
+            {lastSaved.type === 'gasto' ? 'Gasto' : 'Ingreso'} guardado ·{' '}
+            {lastSaved.description || categoryLabel(lastSaved.category)}{' '}
+            {formatARS(lastSaved.amount)} ARS
+          </span>
+          <button
+            type="button"
+            onClick={handleUndo}
+            className="shrink-0 text-[1rem] font-bold text-green-deep underline underline-offset-4"
+          >
+            Deshacer
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function categoryLabel(key: CategoryKey): string {
+  return BUDGET_CATEGORIES.find((c) => c.key === key)?.label.split(' (')[0] ?? key
+}
+
+function TransactionRow({
+  transaction,
+  highlighted,
+}: {
+  transaction: Transaction
+  highlighted: boolean
+}) {
+  const Icon = CATEGORY_ICONS[transaction.category]
+  const isIncome = transaction.type === 'ingreso'
+
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-3.5 border-b border-rule-soft px-5 py-4 last:border-b-0 sm:px-8',
+        highlighted && 'bg-green-soft',
+      )}
+    >
+      <span
+        className={cn(
+          'flex size-11 shrink-0 items-center justify-center rounded-control',
+          isIncome ? 'bg-green-soft text-green' : 'bg-surface-sunk text-ink-muted',
+        )}
+      >
+        {isIncome ? <ArrowUpIcon size={22} /> : <Icon size={22} />}
+      </span>
+
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[1.125rem] font-bold">
+          {transaction.description || categoryLabel(transaction.category)}
+        </div>
+        <div className="text-[0.9375rem] text-ink-muted">
+          {categoryLabel(transaction.category)}
+        </div>
+      </div>
+
+      <div className="text-right">
+        <div className={cn('text-[1.1875rem] font-bold tabular', isIncome && 'text-green')}>
+          {formatSignedARS(isIncome ? transaction.amount : -transaction.amount)}
+        </div>
+        <div className="text-[0.875rem] text-ink-muted">
+          ARS · {isIncome ? 'ingreso' : 'gasto'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Total({
+  label,
+  amount,
+  icon,
+  tone,
+  divided = false,
+}: {
+  label: string
+  amount: number
+  icon: React.ReactNode
+  tone?: 'positive' | 'negative'
+  divided?: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-0.5',
+        divided && 'sm:border-l sm:border-rule-soft sm:pl-8',
+      )}
+    >
+      <span className="flex items-center gap-2 text-[1rem] text-ink-muted">
+        {icon}
+        {label}
+      </span>
+      <span
+        className={cn(
+          'text-[1.625rem] font-bold tabular',
+          tone === 'positive' && 'text-green',
+          tone === 'negative' && 'text-red',
+        )}
+      >
+        {formatSignedARS(amount)}{' '}
+        <span className="text-[0.875rem] font-normal text-ink-muted">ARS</span>
+      </span>
+    </div>
+  )
+}
+
+function ListSkeleton() {
+  return (
+    <div className="flex flex-col gap-6" aria-live="polite" aria-busy="true">
+      <span className="sr-only">Cargando tus movimientos…</span>
+      <Card className="grid gap-4 sm:grid-cols-3">
+        <Skeleton className="h-10 w-40" />
+        <Skeleton className="h-10 w-40" />
+        <Skeleton className="h-10 w-40" />
+      </Card>
+      <Card className="flex flex-col gap-4">
+        <Skeleton className="h-6 w-full" />
+        <Skeleton className="h-6 w-4/5" />
+        <Skeleton className="h-6 w-3/5" />
+      </Card>
     </div>
   )
 }

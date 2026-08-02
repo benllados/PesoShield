@@ -53,7 +53,7 @@ export function buildReportContext(
 
   const monthName = `${MONTH_NAMES[monthIdx]} ${year}`
 
-  const planned = getPlannedBudget()
+  const planned = getPlannedBudget(ym)
   const spent = getSpentByCategory(ym)
 
   // Previous month
