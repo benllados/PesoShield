@@ -14,7 +14,8 @@
       "WebFetch(domain:api.bluelytics.com.ar)",
       "WebFetch(domain:api.argentinadatos.com)",
       "Bash(test:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(ls -la /Users/benjaminllados/Downloads/ 2>/dev/null | head -60; echo \"===DESIGN DIR===\"; ls -la \"/Users/benjaminllados/Downloads/PesoShield Redesign Review/\")"
     ]
   }
 }
